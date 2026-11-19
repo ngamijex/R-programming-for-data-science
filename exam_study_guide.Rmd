@@ -1,0 +1,1091 @@
+---
+title: "R for Data Science — Complete Exam Study Guide"
+subtitle: "AUCA Class Notes, Assignments, Worked Examples & Explanations"
+author: "Didier Ngamije"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+    latex_engine: xelatex
+    fig_caption: true
+geometry: margin=1in
+fontsize: 11pt
+header-includes:
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{float}
+  - \floatplacement{figure}{H}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  fig.width = 5.5,
+  fig.height = 3.6,
+  comment = "##"
+)
+set.seed(1)
+```
+
+# How to use this guide
+
+This document is a **revision booklet** for the R for Data Science course. It follows the same topics as the lecture notes and assignments:
+
+- Class 1 fundamentals and data structures  
+- Data import and package installation  
+- Data management and exploratory analysis  
+- Control structures and functions  
+- The `apply` family  
+- Base plots and **ggplot2** geoms  
+- Linear regression, diagnostics, and simulation  
+
+Each section has:
+
+1. **Concept** — what it means and why it matters  
+2. **Syntax** — the pattern you must remember  
+3. **Worked example** — runnable R code  
+4. **Exam tip** — common questions / mistakes  
+
+**Exam strategy:** read the question carefully, write the object type first (vector / data frame / list), then choose the right function (`$`, `[]`, `[[]]`, `apply`, `lm`, `ggplot`, etc.).
+
+---
+
+# Installing R, RStudio, and packages
+
+## Why packages matter
+
+Base R can do a lot, but packages add specialized tools:
+
+| Package | Main use in this course |
+|---------|-------------------------|
+| `ggplot2` | Grammar-of-graphics plots / geoms |
+| `readr` | Fast CSV / text import |
+| `readxl` | Excel `.xlsx` / `.xls` |
+| `haven` | SPSS / Stata / SAS files |
+| `dplyr` | Filtering, selecting, arranging |
+| `DBI` + `RSQLite` | Database connections |
+
+## Install once, load every session
+
+```{r pkgs-demo, eval=FALSE}
+# Install (once per machine)
+install.packages("ggplot2")
+install.packages(c("readr", "readxl", "haven", "dplyr"))
+
+# Load (every script / every R session)
+library(ggplot2)
+library(readr)
+library(dplyr)
+```
+
+**Exam tip**
+
+- `install.packages("pkg")` downloads to your library.  
+- `library(pkg)` loads it into the current session.  
+- Quotes are required in `install.packages("pkg")`, optional in `library(pkg)` / `library("pkg")`.  
+- If a function is “not found”, you usually forgot `library(...)`.
+
+```{r pkgs-loaded}
+library(ggplot2)
+sessionInfo()$R.version$version.string
+```
+
+---
+
+# R as a calculator and basic objects
+
+## Arithmetic and assignment
+
+R can be used like a calculator. The assignment operator `<-` stores a value in an object.
+
+```{r calc}
+2 + 3
+10 / 4
+2^5
+sqrt(16)
+log(100)          # natural log
+log10(100)
+exp(1)
+
+age <- c(20, 35, 32, 29)
+age
+mean(age)
+summary(age)
+```
+
+**Exam tip:** Prefer `<-` for assignment in class style. `=` also works in many places, but `<-` is clearer.
+
+## Naming rules
+
+- Names can contain letters, numbers, `.` and `_`  
+- Cannot start with a number  
+- Case-sensitive: `Age` ≠ `age`
+
+---
+
+# Data structures (core of Class 1)
+
+R’s main structures are: **vector, matrix, array, list, factor, data frame**.
+
+## Atomic vectors
+
+A vector is the foundational R object: a sequence of values of the **same type**.
+
+### Numeric
+
+```{r vec-num}
+x <- c(0.5, 0.6)
+age <- c(35, 24, 18, 24)
+mean(age)
+summary(age)
+```
+
+### Logical
+
+```{r vec-log}
+x <- c(TRUE, FALSE)
+y <- c(T, F)   # short form (avoid in serious code)
+x
+```
+
+Logical values coerce to numbers: `TRUE = 1`, `FALSE = 0`.
+
+```{r vec-sum-log}
+sum(c(TRUE, TRUE, FALSE, FALSE, FALSE))  # counts TRUEs → 2
+```
+
+### Character
+
+```{r vec-chr}
+x <- c("a", "b", "c")
+class_gender <- c("M", "F", "F", "M")
+class_gender
+```
+
+### Integer and complex
+
+```{r vec-int-cplx}
+x_int <- 9:29          # integer sequence
+x_cplx <- c(1 + 0i, 2 + 4i)
+x_int[1:5]
+x_cplx
+```
+
+## Coercion (very important)
+
+If types are mixed in one vector, R **coerces** everything to one type:
+
+1. Character wins over everything  
+2. Complex wins over numeric  
+3. Numeric wins over logical  
+
+```{r coercion}
+c(1, 2, "a")                 # becomes character
+c(TRUE, FALSE, 2)            # becomes numeric: 1, 0, 2
+as.numeric(c(TRUE, FALSE))
+as.character(1:3)
+```
+
+**Exam tip:** If you accidentally include text in a numeric vector, summaries like `mean()` will fail or give unexpected results.
+
+## Matrix
+
+A matrix is a 2D vector (same type). Created with `matrix()`.
+
+```{r matrix}
+x <- matrix(1:6, nrow = 2, ncol = 3)
+x
+y <- matrix(1:6, nrow = 3, ncol = 2)
+y
+x %*% y   # matrix multiplication
+```
+
+Common helpers:
+
+```{r matrix-helpers}
+dim(x)
+nrow(x); ncol(x)
+t(x)          # transpose
+rowSums(x); colMeans(x)
+```
+
+## Array
+
+An array is multi-dimensional (3D+). Example: `Titanic` is a 4-way table/array used with `apply()`.
+
+```{r array-titanic}
+str(Titanic)
+dim(Titanic)
+dimnames(Titanic)
+```
+
+## List
+
+A list can hold **different types** in one object.
+
+```{r list-demo}
+my_list <- list(1, "a", TRUE, 1 + 4i)
+my_list
+my_list[[2]]     # extract element 2 as the object itself
+my_list[2]       # extract as a sub-list of length 1
+```
+
+**Exam tip**
+
+- `[]` keeps the wrapper type (list stays list)  
+- `[[]]` pulls out the content  
+
+## Factor
+
+A factor stores categorical data with levels.
+
+```{r factor-demo}
+f <- factor(c("yes", "yes", "no", "yes", "no"))
+f
+levels(f)
+table(f)
+```
+
+Useful for grouping in plots and models.
+
+## Data frame
+
+A data frame is like a spreadsheet / SPSS data set: columns can have different types, rows are observations.
+
+```{r df-create}
+studentID <- c(1, 2, 3, 4, 5)
+math_score <- c(12, 17, 10, 9, NA)
+gender <- c("M", "F", "M", "M", "F")
+it_score <- c(13, 18, 11, 10, 19)
+scoredata <- data.frame(studentID, gender, math_score, it_score)
+scoredata
+str(scoredata)
+names(scoredata)
+```
+
+Access columns with `$` or `[["col"]]` or `[, "col"]`.
+
+```{r df-access}
+scoredata$math_score
+scoredata[, c("gender", "it_score")]
+scoredata[1:3, ]
+```
+
+---
+
+# Missing values (`NA`)
+
+Missing data are coded as `NA` (Not Available).
+
+```{r na-basics}
+x <- c(1, 2, NA, 10, 3)
+is.na(x)
+x[!is.na(x)]
+mean(x)                 # NA because of missing
+mean(x, na.rm = TRUE)   # ignore missing
+```
+
+### Matching missingness across two vectors
+
+```{r complete-cases}
+x <- c(1, 2, NA, 4, NA, 5)
+y <- c("a", "b", NA, "d", NA, "f")
+good <- complete.cases(x, y)
+good
+x[good]; y[good]
+```
+
+### Recoding a missing code (class style)
+
+Sometimes missing is stored as a number like `99` or `-99`.
+
+```{r recode-missing}
+fix_missing <- function(v) {
+  v[v == -99] <- NA
+  v
+}
+scores <- c(12, -99, 15, 10)
+fix_missing(scores)
+```
+
+**Exam tip:** `na.omit(df)` drops any row with at least one `NA`. That can remove a lot of data — mention this if asked about “listwise deletion”.
+
+---
+
+# Control structures
+
+Control structures add **logic** so code does not always run the same way.
+
+## `if` / `else` / `else if`
+
+```{r if-else}
+x <- runif(1, 0, 10)
+if (x > 3) {
+  print("X is greater than three")
+} else {
+  print("X is less or equal to three")
+}
+
+y <- if (x > 3) 10 else 0
+y
+```
+
+### Vectorised alternative: `ifelse`
+
+```{r ifelse-demo}
+pvalues <- c(0.867, 0.0054, 0.0018, 0.1572, 0.0183, 0.5386)
+results <- ifelse(pvalues < 0.05, "Significant", "Not significant")
+data.frame(pvalues, results)
+```
+
+**Exam tip:** Use `if` for one value / scalar decisions. Use `ifelse` for whole vectors.
+
+## `for` loops
+
+```{r for-demo}
+for (i in 1:5) {
+  print(i)
+}
+
+letters_vec <- c("a", "b", "c", "d")
+for (i in seq_along(letters_vec)) {
+  print(letters_vec[i])
+}
+```
+
+## `while` loops
+
+```{r while-demo}
+count <- 0
+while (count < 5) {
+  print(count)
+  count <- count + 1
+}
+```
+
+Coin-flip style example from class:
+
+```{r while-coin}
+z <- 5
+set.seed(1)
+while (z >= 3 && z <= 10) {
+  coin <- rbinom(1, 1, 0.5)
+  if (coin == 1) {
+    z <- z + 1
+  } else {
+    z <- z - 1
+  }
+}
+z
+```
+
+## `next` and `break`
+
+- `next` skips the rest of the current iteration  
+- `break` exits the loop completely  
+
+```{r break-demo}
+for (i in 1:100) {
+  if (i > 5) break
+  print(i)
+}
+```
+
+---
+
+# Writing functions
+
+A function packages repeated logic.
+
+```{r function-demo}
+f <- function(x, y) {
+  result <- x + (2 * y) + 3
+  return(result)
+}
+f(2, 3)
+args(f)
+```
+
+### Exercise-style: summary statistics function
+
+```{r my-summary}
+my_summary <- function(x) {
+  c(
+    n = length(x),
+    mean = mean(x, na.rm = TRUE),
+    sd = sd(x, na.rm = TRUE),
+    min = min(x, na.rm = TRUE),
+    max = max(x, na.rm = TRUE)
+  )
+}
+my_summary(mtcars$mpg)
+```
+
+### Exercise-style: two-sample t-test wrapper
+
+```{r my-ttest}
+my_ttest <- function(x, y) {
+  t.test(x, y)
+}
+my_ttest(mtcars$mpg[mtcars$am == 0], mtcars$mpg[mtcars$am == 1])
+```
+
+**Exam tip:** Inside a function, create local objects; use `return()` (or the last expression) to send the result out.
+
+---
+
+# Data importation
+
+R can import from many sources.
+
+## Text / table files
+
+```{r import-text}
+data_class <- read.table("data/class_data.txt", header = TRUE)
+head(data_class)
+tail(data_class)
+summary(data_class)
+```
+
+## CSV with `readr`
+
+```{r import-csv}
+library(readr)
+students <- read_csv("data/students.csv")
+students
+```
+
+## Excel / SPSS / Stata / SAS / databases (patterns to remember)
+
+```{r import-patterns, eval=FALSE}
+library(readxl)
+excel_data <- read_excel("data/my_file.xlsx")
+
+library(haven)
+spss_data  <- read_sav("data/example.sav")
+stata_data <- read_dta("data/example.dta")
+sas_data   <- read_sas("data/example.sas7bdat")
+
+library(DBI)
+library(RSQLite)
+con <- dbConnect(RSQLite::SQLite(), "data/class_practice.sqlite")
+dbWriteTable(con, "class_data", data_class, overwrite = TRUE)
+from_db <- dbReadTable(con, "class_data")
+dbDisconnect(con)
+```
+
+## Built-in data
+
+```{r builtin}
+data("airquality")
+variable.names(airquality)
+str(airquality)
+data("iris")
+head(iris)
+```
+
+**Exam tip:** Always state which package is needed for which source (`readxl` for Excel, `haven` for SPSS/Stata/SAS, `DBI` for databases).
+
+---
+
+# Data management
+
+## Creating variables (`cbind`, attach/detach)
+
+```{r bmi}
+attach(data_class)
+BMI <- round(WEIGHT / (HEIGHT / 100)^2, digits = 2)
+new_data_class <- cbind(data_class, BMI)
+head(new_data_class, 5)
+summary(BMI)
+detach(data_class)
+```
+
+**Safer style (preferred):** avoid `attach()`; use `$` or `with()`.
+
+```{r bmi-safe}
+BMI2 <- round(data_class$WEIGHT / (data_class$HEIGHT / 100)^2, 2)
+head(cbind(data_class, BMI = BMI2))
+```
+
+## Leadership example (subsetting + missing + categories)
+
+```{r leadership}
+manager <- c(1, 2, 3, 4, 5)
+country <- c("US", "US", "UK", "UK", "UK")
+gender <- c("M", "F", "F", "M", "F")
+age <- c(32, 45, 25, 39, 99)
+q1 <- c(5, 3, 3, 3, 2)
+q2 <- c(4, 5, 5, 3, 2)
+q3 <- c(5, 2, 5, 4, 1)
+q4 <- c(5, 5, 5, NA, 2)
+q5 <- c(5, 5, 2, NA, 1)
+leadership <- data.frame(manager, country, gender, age, q1, q2, q3, q4, q5)
+
+# 99 means missing age
+leadership$age[leadership$age == 99] <- NA
+
+# age categories
+leadership$agecat <- NA_character_
+leadership$agecat[leadership$age > 75] <- "Elder"
+leadership$agecat[leadership$age >= 35 & leadership$age <= 75] <- "Middle Aged"
+leadership$agecat[leadership$age < 35] <- "Young"
+leadership
+```
+
+### Selecting / dropping / filtering
+
+```{r subset-demo}
+myvars <- c("q1", "q2", "q3", "q4", "q5")
+leadership[myvars]
+leadership[, -(1:2)]
+leadership[order(leadership$age), ]
+na.omit(leadership)
+subset(leadership, age >= 35, select = c(q1, q2, q3, q4, q5))
+leadership[leadership$gender == "M" & leadership$age > 30, ]
+```
+
+## Combining data
+
+- **Horizontal join:** `merge(A, B, by = "ID")` or `cbind` when rows already align  
+- **Vertical stack:** `rbind(A, B)` — same columns required  
+
+```{r bind-demo}
+data2 <- data.frame(x = 1:3, y = c("a", "b", "c"))
+cbind(data2, data.frame(z = 3:1))
+rbind(data2, data.frame(x = 10, y = "z"))
+```
+
+## Indexing cheat sheet
+
+| Syntax | Meaning |
+|--------|---------|
+| `df$col` | column as vector |
+| `df[["col"]]` | column as vector |
+| `df["col"]` | one-column data frame |
+| `df[i, j]` | row i, column j |
+| `df[i, ]` | whole row i |
+| `df[, j]` | whole column j |
+| `lst[[i]]` | i-th element of a list |
+| `lst[i]` | sub-list of length 1 |
+
+---
+
+# The `apply` family (Assignment 4)
+
+## Why `apply` exists
+
+`mean(matrix)` averages **all cells**. To get row means or column means, use `apply`.
+
+```{r apply-matrix}
+set.seed(1)
+m <- matrix(runif(12), nrow = 3)
+m
+mean(m)
+apply(m, 1, mean)   # MARGIN = 1 → rows
+apply(m, 2, mean)   # MARGIN = 2 → columns
+apply(m, 1, sum)
+apply(m, 2, sd)
+rowMeans(m); colMeans(m)
+```
+
+**General form:** `apply(X, MARGIN, FUN, ...)`
+
+- `MARGIN = 1` rows  
+- `MARGIN = 2` columns  
+- For arrays, `MARGIN` can be a vector of dimensions  
+
+## `lapply` and `sapply`
+
+- `lapply(x, FUN)` → always returns a **list**  
+- `sapply(x, FUN)` → simplifies to vector/matrix when possible  
+
+```{r lapply-sapply}
+nums <- list(a = 1:5, b = 10:12, c = c(2, 4, 6))
+lapply(nums, mean)
+sapply(nums, mean)
+```
+
+Apply a cleaner across all columns:
+
+```{r lapply-df}
+df <- data.frame(
+  score1 = c(12, -99, 15, 10),
+  score2 = c(18, 17, -99, 19),
+  score3 = c(11, 14, 13, -99)
+)
+df[] <- lapply(df, fix_missing)
+df
+```
+
+## `tapply` and `aggregate`
+
+```{r tapply-agg}
+tapply(mtcars$mpg, mtcars$cyl, mean)
+aggregate(mpg ~ cyl, data = mtcars, FUN = mean)
+```
+
+## `sapply` on split strings (roster example)
+
+```{r roster}
+Student <- c("John ncuti", "Angela bakame", "Bruce wizeye",
+             "Alexis aganze", "claude Rukundo", "Joel Kagabo", "Mary ineza")
+Math <- c(600, 412, 358, 495, 512, 410, 522)
+Science <- c(95, 99, 80, 82, 75, 89, 77)
+English <- c(25, 22, 18, 20, 29, 30, 27)
+roster <- data.frame(Student, Math, Science, English, stringsAsFactors = FALSE)
+
+z <- scale(roster[, 2:4])
+score <- apply(z, 1, mean)
+roster <- cbind(roster, score)
+
+name <- strsplit(roster$Student, " ")
+lastname <- sapply(name, "[", 2)
+firstname <- sapply(name, "[", 1)
+roster2 <- cbind(firstname, lastname, roster[, -1])
+roster2[order(lastname, firstname), ]
+```
+
+## Titanic with multi-margin `apply`
+
+```{r titanic-apply}
+apply(Titanic, c(1, 3), sum)
+apply(Titanic, c(1, 2), sum)[3:4, ]
+apply(Titanic, c(1, 4), sum)[3:4, ]
+ftable(apply(Titanic, c(1, 4, 2), sum)[3:4, , ])
+```
+
+**Exam tip memory table**
+
+| Function | Typical input | Typical output |
+|----------|---------------|----------------|
+| `apply` | matrix / array / df | vector / array |
+| `lapply` | list / vector / df columns | list |
+| `sapply` | list / vector | simplified vector/matrix |
+| `vapply` | list / vector | typed, safer sapply |
+| `tapply` | vector + grouping factor | array/table of summaries |
+| `mapply` | multiple parallel inputs | varies |
+
+---
+
+# Exploratory data analysis (EDA)
+
+## Numerical summaries
+
+```{r eda-num}
+summary(data_class)
+apply(data_class, 2, sd)
+c(Mean = mean(data_class$HEIGHT), SD = sd(data_class$HEIGHT))
+c(Mean = mean(data_class$WEIGHT), SD = sd(data_class$WEIGHT))
+```
+
+## Categorical vs continuous (`iris`)
+
+```{r eda-iris}
+mean(iris$Petal.Length)
+by(iris$Petal.Length, iris$Species, mean)
+by(iris$Petal.Length, iris$Species, summary)
+```
+
+```{r eda-box, fig.cap="Boxplot: Sepal length by species"}
+boxplot(iris$Sepal.Length ~ iris$Species, data = iris,
+        main = "Categorical vs quantitative",
+        xlab = "Species", ylab = "Sepal Length")
+```
+
+## Two categorical variables + Simpson’s paradox idea
+
+```{r eda-ucb}
+ucba <- as.data.frame(UCBAdmissions)
+cross <- xtabs(Freq ~ Gender + Admit, data = ucba)
+cross
+prop.table(cross, 1)
+
+cross2 <- xtabs(Freq ~ Gender + Admit, data = ucba[ucba$Dept == "F", ])
+prop.table(cross2, 1)
+```
+
+**Exam tip:** Simpson’s paradox = a trend in combined data can reverse inside subgroups. Always check stratification (e.g. by department).
+
+---
+
+# Base R graphics
+
+```{r base-scatter, fig.cap="Scatter plot with regression line (class data)"}
+plot(WEIGHT ~ HEIGHT, data = data_class,
+     main = "Weight vs Height", xlab = "Height", ylab = "Weight")
+abline(lm(WEIGHT ~ HEIGHT, data = data_class), col = "red")
+cor(data_class$HEIGHT, data_class$WEIGHT)
+```
+
+```{r base-hist, fig.cap="Histograms of height and weight"}
+par(mfrow = c(1, 2))
+hist(data_class$HEIGHT, main = "Height", col = "grey80")
+hist(data_class$WEIGHT, main = "Weight", col = "steelblue")
+par(mfrow = c(1, 1))
+```
+
+```{r base-bar, fig.cap="Grouped barplot example"}
+dat <- read.table(text = "ProdA ProdB ProdC ProdD
+1 110 50 60 70
+2 120 50 80 65", header = TRUE)
+barplot(as.matrix(dat), beside = TRUE, col = c("red", "green"),
+        main = "Product comparison")
+legend("topright", c("Group1", "Group2"), fill = c("red", "green"), bty = "n")
+```
+
+Useful base arguments: `main`, `xlab`, `ylab`, `col`, `pch`, `lty`, `lwd`, `type` (`"p"`, `"l"`, `"b"`, `"o"`).
+
+---
+
+# ggplot2 and geom variations (Assignment 3)
+
+## Grammar of graphics idea
+
+A ggplot is built by **layers** joined with `+`:
+
+1. `ggplot(data, aes(...))` — data + aesthetic mapping  
+2. `geom_*()` — how to draw  
+3. scales / facets / themes / labels  
+
+```{r gg-basic, fig.cap="Basic ggplot scatter"}
+library(ggplot2)
+ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point() +
+  labs(title = "Automobile Data", x = "Weight", y = "Miles per Gallon")
+```
+
+```{r gg-smooth, fig.cap="Points + linear smooth"}
+ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(color = "blue", size = 2) +
+  geom_smooth(method = "lm", color = "darkgreen", se = TRUE) +
+  labs(title = "Automobile Data with LM smooth")
+```
+
+## Themes
+
+```{r gg-theme, fig.cap="Theme customization"}
+f0 <- ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point(shape = 24, fill = "orange", size = 2) +
+  geom_smooth(method = "lm", color = "blue")
+f0 + theme_bw() +
+  theme(panel.grid = element_line(linetype = "dotted", color = "grey40"))
+```
+
+## Faceting / grouping
+
+```{r gg-facet, fig.cap="Facet grid by engine type"}
+mt <- mtcars
+mt$am <- factor(mt$am, levels = c(0, 1), labels = c("Automatic", "Manual"))
+mt$vs <- factor(mt$vs, levels = c(0, 1), labels = c("V-Engine", "Straight"))
+mt$cyl <- factor(mt$cyl)
+
+ggplot(mt, aes(x = hp, y = mpg, color = cyl, shape = cyl)) +
+  geom_point(size = 2.5) +
+  facet_grid(vs ~ am) +
+  labs(title = "Automobile Data by Engine Type",
+       x = "Horsepower", y = "Miles per Gallon")
+```
+
+## Geom catalogue (practice these)
+
+```{r gg-geoms, fig.cap="Common geoms on mtcars", fig.height=7}
+p1 <- ggplot(mtcars, aes(x = mpg)) + geom_histogram(bins = 10, fill = "steelblue") +
+  ggtitle("geom_histogram")
+p2 <- ggplot(mtcars, aes(x = mpg)) + geom_density(fill = "lightblue") +
+  ggtitle("geom_density")
+p3 <- ggplot(mt, aes(x = cyl, y = mpg)) + geom_boxplot() + ggtitle("geom_boxplot")
+p4 <- ggplot(mt, aes(x = cyl)) + geom_bar(fill = "grey60") + ggtitle("geom_bar")
+p5 <- ggplot(mtcars, aes(x = wt, y = mpg)) +
+  geom_point() + geom_hline(yintercept = mean(mtcars$mpg), color = "red") +
+  ggtitle("geom_point + geom_hline")
+p6 <- ggplot(mt, aes(x = cyl, y = mpg)) + geom_violin(fill = "grey85") +
+  ggtitle("geom_violin")
+
+print(p1); print(p2); print(p3); print(p4); print(p5); print(p6)
+```
+
+**Geoms to remember for the exam**
+
+`geom_point`, `geom_line`, `geom_bar`, `geom_col`, `geom_histogram`, `geom_density`, `geom_boxplot`, `geom_violin`, `geom_smooth`, `geom_hline`, `geom_vline`, `geom_jitter`, `geom_text`, `geom_rug`.
+
+**Exam tip:** Aesthetics in `aes()` map **variables**. Fixed values (one color for all points) go **outside** `aes()`, e.g. `geom_point(color = "blue")`.
+
+---
+
+# Linear regression (Assignment 5)
+
+## What regression does
+
+Regression models the relationship between a **response** $Y$ and predictor(s) $X$.
+
+Simple linear model:
+
+\[
+Y = \beta_0 + \beta_1 X + \varepsilon
+\]
+
+- $\beta_0$: intercept  
+- $\beta_1$: slope  
+- $\varepsilon$: residual / error  
+
+OLS chooses $\beta$ to minimize residual sum of squares (RSS).
+
+### Assumptions (memorize)
+
+1. **Normality** of errors (for inference)  
+2. **Independence** of observations  
+3. **Linearity** between $Y$ and $X$  
+4. **Homoscedasticity** (constant variance)
+
+## Simple linear regression with `lm()`
+
+```{r lm-women}
+data(women)
+fit <- lm(weight ~ height, data = women)
+summary(fit)
+```
+
+Interpretation template:
+
+- Intercept: expected weight when height = 0 (often not meaningful alone)  
+- Slope: average change in weight for +1 unit height  
+- R-squared: proportion of variance in $Y$ explained by the model  
+
+```{r lm-women-plot, fig.cap="Women: weight vs height with fitted line"}
+plot(women$height, women$weight,
+     xlab = "Height (inches)", ylab = "Weight (pounds)",
+     main = "Simple linear regression")
+abline(fit, col = "red", lwd = 2)
+```
+
+Useful extractors:
+
+```{r lm-extract}
+coef(fit)
+fitted(fit)
+residuals(fit)
+```
+
+## Polynomial regression
+
+If the scatter shows a bend, add a squared term:
+
+```{r lm-poly}
+fit2 <- lm(weight ~ height + I(height^2), data = women)
+summary(fit2)
+```
+
+```{r lm-poly-plot, fig.cap="Polynomial fit"}
+plot(women$height, women$weight,
+     xlab = "Height", ylab = "Weight", main = "Polynomial regression")
+lines(women$height, fitted(fit2), col = "blue", lwd = 2)
+```
+
+## Regression diagnostics
+
+```{r lm-diag, fig.cap="Diagnostic plots for simple LM", fig.height=5.5}
+par(mfrow = c(2, 2))
+plot(fit)
+par(mfrow = c(1, 1))
+```
+
+What to look for:
+
+| Plot | Good pattern | Problem signal |
+|------|--------------|----------------|
+| Residuals vs Fitted | random cloud | curve → non-linearity |
+| Normal Q-Q | points on line | tails off line → non-normality |
+| Scale-Location | flat band | funnel → heteroscedasticity |
+| Residuals vs Leverage | no extreme Cook’s distance | influential points |
+
+```{r lm-diag2, fig.cap="Diagnostics after polynomial term", fig.height=5.5}
+par(mfrow = c(2, 2))
+plot(fit2)
+par(mfrow = c(1, 1))
+```
+
+Corrective ideas from class: delete influential points, transform variables, add/remove terms, use another method (e.g. robust regression).
+
+## `mtcars` example + prediction
+
+```{r lm-mtcars}
+model <- lm(mpg ~ wt, data = mtcars)
+summary(model)
+predict(model, newdata = data.frame(wt = 6))
+```
+
+Interpretation: for each extra 1000 lb (`wt`), mpg changes by the slope (negative here).
+
+## Multiple linear regression
+
+```{r lm-multi}
+model2 <- lm(mpg ~ wt + hp + cyl, data = mtcars)
+summary(model2)
+```
+
+**Exam tip:** In multiple regression, each coefficient is the effect of that predictor **holding the others fixed**.
+
+## Class data regression practice
+
+```{r lm-class}
+fit_class <- lm(WEIGHT ~ HEIGHT, data = data_class)
+summary(fit_class)
+cor(data_class$HEIGHT, data_class$WEIGHT)
+```
+
+---
+
+# Simulation in R
+
+## Random number generators
+
+For the normal distribution family:
+
+- `dnorm` density  
+- `pnorm` cumulative probability  
+- `qnorm` quantile  
+- `rnorm` random draws  
+
+```{r sim-norm}
+set.seed(1)
+rnorm(5)
+rnorm(5, mean = 20, sd = 2)
+pnorm(2)   # P(Z <= 2) for standard normal
+```
+
+**Always set a seed** for reproducibility: `set.seed(20)`.
+
+## Simulate a linear model
+
+```{r sim-lm, fig.cap="Simulated linear model"}
+set.seed(20)
+x <- rnorm(100)
+e <- rnorm(100, 0, 2)
+y <- 0.5 - 2 * x + e
+plot(x, y, main = "Simulated data: y = 0.5 - 2x + e")
+sim_fit <- lm(y ~ x)
+abline(sim_fit, col = "red", lwd = 2)
+coef(sim_fit)
+```
+
+True intercept was 0.5 and slope was −2; estimates should be close for large $n$.
+
+## Sampling helpers
+
+```{r sample-demo}
+set.seed(1)
+sample(1:10, 4)
+sample(letters, 5)
+sample(1:10)          # random permutation
+```
+
+---
+
+# Dates (short class topic)
+
+```{r dates}
+today <- Sys.Date()
+format(today, "%B %d %Y")
+format(today, "%A")
+dob <- as.Date("1982-02-10")
+difftime(today, dob, units = "days")
+as.Date("2011-01-22") - as.Date("2004-02-13")
+```
+
+---
+
+# Quick reference (memorize for exam)
+
+## Packages ↔ tasks
+
+- Install: `install.packages("pkg")`  
+- Load: `library(pkg)`  
+- Excel: `readxl::read_excel()`  
+- SPSS/Stata/SAS: `haven::read_sav()` / `read_dta()` / `read_sas()`  
+- CSV: `readr::read_csv()` or `read.csv()`  
+- Plots: `ggplot2`  
+
+## Objects
+
+- Same type sequence → **vector**  
+- 2D same type → **matrix**  
+- Mixed types / nested → **list**  
+- Categories → **factor**  
+- Table of variables → **data frame**  
+
+## Selection
+
+- Column: `df$x`  
+- Rows/cols: `df[rows, cols]`  
+- List content: `lst[[i]]`  
+
+## Modeling & viz
+
+- Model: `lm(y ~ x, data = df)` then `summary()`, `plot()`, `predict()`  
+- ggplot skeleton: `ggplot(df, aes(x, y)) + geom_point()`  
+- Apply rows/cols: `apply(m, 1, mean)`, `apply(m, 2, mean)`  
+
+---
+
+# Practice exam-style questions
+
+Try these without looking first, then check with R.
+
+1. Create a numeric vector of ages, compute mean and summary.  
+2. Explain what happens in `c(1, 2, "3")` and why.  
+3. Build a 2×3 matrix of `1:6` and multiply by a compatible matrix.  
+4. Write an `ifelse` that labels p-values as Significant / Not significant at 0.05.  
+5. Import `data/class_data.txt`, compute BMI, and make a histogram of BMI.  
+6. Using `iris`, compute mean petal length by species with `by()` and with `tapply()`.  
+7. Draw four ggplot geoms on `mtcars`: point, histogram, boxplot, smooth.  
+8. Fit `lm(mpg ~ wt, data = mtcars)`, interpret slope and R-squared, predict for `wt = 3`.  
+9. Explain the difference between `lapply` and `sapply` with an example.  
+10. What four assumptions should you check after fitting a linear model?  
+
+### Short answers / checks
+
+```{r practice-checks}
+c(1, 2, "3")
+tapply(iris$Petal.Length, iris$Species, mean)
+fit_q <- lm(mpg ~ wt, data = mtcars)
+coef(fit_q)
+summary(fit_q)$r.squared
+predict(fit_q, data.frame(wt = 3))
+```
+
+---
+
+# Suggested study order before the exam
+
+1. Data structures + indexing + `NA`  
+2. Import + data management (subset, recode, BMI example)  
+3. `apply` / `lapply` / `sapply` / `tapply`  
+4. Base plots + ggplot geoms / facets / themes  
+5. `lm`, interpretation, diagnostics, simple simulation  
+6. Re-run your assignment scripts line by line  
+
+**Lecture note links used in this course**
+
+- <https://rpubs.com/Mapara_lee/1434996>  
+- <https://rpubs.com/Mapara_lee/1434992>  
+- <https://rpubs.com/Mapara_lee/1432408>  
+- <https://rpubs.com/Mapara_lee/1436418>  
+
+---
+
+# Closing reminder
+
+On the exam, show:
+
+1. Correct object creation  
+2. Correct function / package  
+3. Correct interpretation in words (especially for `lm` coefficients, R², plots, and missing-data choices)
+
+Good luck.

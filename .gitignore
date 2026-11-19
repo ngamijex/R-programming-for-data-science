@@ -1,0 +1,14 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+.DS_Store
+Thumbs.db
+*.html
+~$*
+.Rcheck/
+*.tar.gz
+*.zip
+*.sqlite
+*.sqlite-journal
